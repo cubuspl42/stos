@@ -20,8 +20,10 @@ def _fatal(message):
     sys.exit(1)
 
 def _debug(html_text):
-    with open('/tmp/stos_response.html', 'w') as file:
-        file.write(html_text)
+    debug_file = os.environ.get('STOS_DEBUG_FILE')
+    if debug_file :
+        with open(debug_file, 'w') as file:
+            file.write(html_text)
 
 def _stos_path(repo_path):
     return path.join(repo_path, '.stos')
@@ -82,6 +84,7 @@ def _put_files(repo_path, session, config) :
             i += 1
     r = session.post(_stos_url, params=params, data=data, files=files, verify=False)
     if 'przetwarzane' not in r.text and 'oczekuje' not in r.text :
+        _debug(r.text)
         _fatal('Failed to upload files to STOS')
 
 def _get_status_html(session, config) :
@@ -115,10 +118,13 @@ def _print_infofile(soup) :
     if info :
         print("**** Dodatkowe informacje ****")
 
-        tables = info.find_all('table')
-        if tables :
-            print()
-            for table in tables :
+        compileroutput = info.find(id='compileroutput')
+        if compileroutput :
+            print(compileroutput.get_text())
+
+        for element in info.children :
+            if element.name == 'table':
+                table = element
                 tds = table.find_all('td')
                 wrong_lines = tds[0].get_text().splitlines();
                 if not wrong_lines[-1] :
@@ -134,15 +140,16 @@ def _print_infofile(soup) :
                     i += 1
                 headers = [str(th.string) for th in table.find_all('th')]
                 print(tabulate(rows, headers=headers))
-
-        compileroutput = info.find(id='compileroutput')
-        if compileroutput :
-            print(compileroutput.get_text())
-
+            else :
+                try :
+                    if element['class'][0] == 'trace' :
+                        print(re.sub("\n+" , "\n", html2text.html2text(str(element))))
+                except (KeyError, TypeError):
+                    pass
 
 def _print_status(session, config) :
     status_html = _get_status_html(session, config)
-    while 'przetwarzane' in status_html or 'oczekuje' in status_html:
+    while any(s in status_html for s in ('przetwarzane', 'oczekuje', 'kolejce')) :
         time.sleep(2)
         status_html = _get_status_html(session, config)
 
