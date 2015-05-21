@@ -1,12 +1,15 @@
 import configparser
 import getpass
+import html
 import os
 from os import path
+import re
 import sys
 import time
 
 from bs4 import BeautifulSoup
 import colorama
+import html2text
 import requests
 from tabulate import tabulate
 
@@ -79,7 +82,6 @@ def _put_files(repo_path, session, config) :
             i += 1
     r = session.post(_stos_url, params=params, data=data, files=files, verify=False)
     if 'przetwarzane' not in r.text and 'oczekuje' not in r.text :
-        _debug(r.text)
         _fatal('Failed to upload files to STOS')
 
 def _get_status_html(session, config) :
@@ -87,25 +89,55 @@ def _get_status_html(session, config) :
     r = session.get(_stos_url, params=params, verify=False)
     return r.text
 
-def _print_test_coverage(session, config) :
+def _print_results(soup) :
+    result = soup.find(id='result')
+    if result :
+        rows = []
+        trs = result.find_all('tr')[1:-1]
+        for tr in trs :
+            tds = tr.find_all('td')[:-3]
+            style = colorama.Fore.RED
+            if tr['class'][0] == 'testacc':
+                style = colorama.Fore.GREEN
+            style_reset = colorama.Fore.RESET
+            rows.append([style + str(td.string or '') + style_reset for td in tds])
+        uwagi = ['Uwagi'] if 'Uwagi' in soup else []
+        print("**** Wyniki ****\n")
+        print(tabulate(rows, headers=['Test', 'Wynik'] + uwagi + ['Punkty', 'Czas [s]']))
+        print()
+
+def _print_diffs(soup) :
+    info = soup.find(id='infofile')
+    if info :
+        print("**** Dodatkowe informacje ****")
+        print()
+        for table in info.find_all('table') :
+            tds = table.find_all('td')
+            wrong_lines = tds[0].get_text().splitlines();
+            if not wrong_lines[-1] :
+                wrong_lines.pop()
+            correct_lines = tds[1].get_text().splitlines();
+            if not correct_lines[-1] :
+                correct_lines.pop()
+            rows = []
+            i = 0
+            while(i < len(wrong_lines) or i < len(correct_lines)) :
+                rows.append([wrong_lines[i] if i < len(wrong_lines) else '',
+                             correct_lines[i] if i < len(correct_lines) else ''])
+                i += 1
+            headers = [str(th.string) for th in table.find_all('th')]
+            print(tabulate(rows, headers=headers))
+
+def _print_status(session, config) :
     status_html = _get_status_html(session, config)
     while 'przetwarzane' in status_html or 'oczekuje' in status_html:
         time.sleep(2)
         status_html = _get_status_html(session, config)
-    _debug(status_html)
-    soup = BeautifulSoup(status_html)
-    result = soup.find(id='result')
-    rows = []
-    trs = result.find_all('tr')[1:-1]
-    for tr in trs :
-        tds = tr.find_all('td')[:-3]
-        style = colorama.Fore.RED
-        if tr['class'][0] == 'testacc':
-            style = colorama.Fore.GREEN
-        style_reset = colorama.Fore.RESET
-        rows.append([style + str(td.string or '') + style_reset for td in tds])
-    uwagi = ['Uwagi'] if 'Uwagi' in status_html else []
-    print(tabulate(rows, headers=['Test', 'Wynik'] + uwagi + ['Punkty', 'Czas [s]']))
+
+    #_debug(status_html)
+    soup = BeautifulSoup(html.unescape(status_html))
+    _print_results(soup)
+    _print_diffs(soup)
 
 def push(repo_path) :
     config = _read_config(repo_path)
@@ -113,14 +145,14 @@ def push(repo_path) :
     session = requests.Session()
     _login_to_stos(session, username, password)
     _put_files(repo_path, session, config)
-    _print_test_coverage(session, config)
+    _print_status(session, config)
 
 def status(repo_path) :
     config = _read_config(repo_path)
     username, password = _get_username_password(repo_path, config)
     session = requests.Session()
     _login_to_stos(session, username, password)
-    _print_test_coverage(session, config)
+    _print_status(session, config)
 
 if __name__ == "__main__":
     colorama.init()
