@@ -1,6 +1,7 @@
 import configparser
 import getpass
 import html
+import logging
 import os
 from os import path
 import re
