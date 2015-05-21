@@ -135,6 +135,9 @@ if __name__ == "__main__":
             status(cwd)
     except IndexError:
         print("usage: stos <command> <args>", file=sys.stderr)
+        print("example: stos init 365 # initialize problem with id 365", file=sys.stderr)
+        print("example: stos push # send sources to STOS and show status", file=sys.stderr)
+        print("example: stos status # show status of the problem", file=sys.stderr)
         sys.exit(1)
     except requests.exceptions.ConnectionError:
         _fatal("Connection error")
