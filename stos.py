@@ -13,6 +13,8 @@ import html2text
 import requests
 from tabulate import tabulate
 
+logging.captureWarnings(True)
+
 _stos_url = 'https://kaims.pl/~kmocet/stos/index.php'
 
 def _fatal(message):
