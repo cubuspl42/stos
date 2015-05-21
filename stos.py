@@ -23,8 +23,10 @@ def _fatal(message):
     sys.exit(1)
 
 def _debug(html_text):
-    with open('/tmp/stos_response.html', 'w') as file:
-        file.write(html_text)
+    debug_file = os.environ.get('STOS_DEBUG_FILE')
+    if debug_file :
+        with open(debug_file, 'w') as file:
+            file.write(html_text)
 
 def _stos_path(repo_path):
     return path.join(repo_path, '.stos')
@@ -85,6 +87,7 @@ def _put_files(repo_path, session, config) :
             i += 1
     r = session.post(_stos_url, params=params, data=data, files=files, verify=False)
     if 'przetwarzane' not in r.text and 'oczekuje' not in r.text :
+        _debug(r.text)
         _fatal('Failed to upload files to STOS')
 
 def _get_status_html(session, config) :
@@ -95,6 +98,7 @@ def _get_status_html(session, config) :
 def _print_results(soup) :
     result = soup.find(id='result')
     if result :
+        print("**** Wyniki ****\n")
         rows = []
         trs = result.find_all('tr')[1:-1]
         for tr in trs :
@@ -104,43 +108,58 @@ def _print_results(soup) :
                 style = colorama.Fore.GREEN
             style_reset = colorama.Fore.RESET
             rows.append([style + str(td.string or '') + style_reset for td in tds])
-        uwagi = ['Uwagi'] if 'Uwagi' in soup else []
-        print("**** Wyniki ****\n")
-        print(tabulate(rows, headers=['Test', 'Wynik'] + uwagi + ['Punkty', 'Czas [s]']))
-        print()
+        if rows :
+            uwagi = ['Uwagi'] if 'Uwagi' in soup else []
+            print(tabulate(rows, headers=['Test', 'Wynik'] + uwagi + ['Punkty', 'Czas [s]']))
+            print()
+        else:
+            print(result.get_text())
+            print()
 
-def _print_diffs(soup) :
+def _print_infofile(soup) :
     info = soup.find(id='infofile')
     if info :
         print("**** Dodatkowe informacje ****")
-        print()
-        for table in info.find_all('table') :
-            tds = table.find_all('td')
-            wrong_lines = tds[0].get_text().splitlines();
-            if not wrong_lines[-1] :
-                wrong_lines.pop()
-            correct_lines = tds[1].get_text().splitlines();
-            if not correct_lines[-1] :
-                correct_lines.pop()
-            rows = []
-            i = 0
-            while(i < len(wrong_lines) or i < len(correct_lines)) :
-                rows.append([wrong_lines[i] if i < len(wrong_lines) else '',
-                             correct_lines[i] if i < len(correct_lines) else ''])
-                i += 1
-            headers = [str(th.string) for th in table.find_all('th')]
-            print(tabulate(rows, headers=headers))
+
+        compileroutput = info.find(id='compileroutput')
+        if compileroutput :
+            print(compileroutput.get_text())
+
+        for element in info.children :
+            if element.name == 'table':
+                table = element
+                tds = table.find_all('td')
+                wrong_lines = tds[0].get_text().splitlines();
+                if not wrong_lines[-1] :
+                    wrong_lines.pop()
+                correct_lines = tds[1].get_text().splitlines();
+                if not correct_lines[-1] :
+                    correct_lines.pop()
+                rows = []
+                i = 0
+                while(i < len(wrong_lines) or i < len(correct_lines)) :
+                    rows.append([wrong_lines[i] if i < len(wrong_lines) else '',
+                                 correct_lines[i] if i < len(correct_lines) else ''])
+                    i += 1
+                headers = [str(th.string) for th in table.find_all('th')]
+                print(tabulate(rows, headers=headers))
+            else :
+                try :
+                    if element['class'][0] == 'trace' :
+                        print(re.sub("\n+" , "\n", html2text.html2text(str(element))))
+                except (KeyError, TypeError):
+                    pass
 
 def _print_status(session, config) :
     status_html = _get_status_html(session, config)
-    while 'przetwarzane' in status_html or 'oczekuje' in status_html:
+    while any(s in status_html for s in ('przetwarzane', 'oczekuje', 'kolejce')) :
         time.sleep(2)
         status_html = _get_status_html(session, config)
 
     #_debug(status_html)
     soup = BeautifulSoup(html.unescape(status_html))
     _print_results(soup)
-    _print_diffs(soup)
+    _print_infofile(soup)
 
 def push(repo_path) :
     config = _read_config(repo_path)
