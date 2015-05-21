@@ -67,6 +67,10 @@ def _get_username_password(repo_path, config) :
         _write_config(repo_path, config)
     return username, password
 
+def _make_soup(stos_response) :
+    return BeautifulSoup(html.unescape(stos_response.replace("<br>", "<br />")
+                         .replace("</code></pre></div></td></td>", "</code></pre></div></td>")))
+
 def _login_to_stos(session, username, password) :
     params = {'p': 'login'}
     data = {'login': username, 'password': password}
@@ -74,9 +78,19 @@ def _login_to_stos(session, username, password) :
     if 'Wylogowanie' not in r.text:
         _fatal('Login unsucessful')
 
+def _delete_files(session, problem_id) :
+    params = {'p': 'submit', 'id': problem_id}
+    r = session.get(_stos_url, params=params)
+    soup = _make_soup(r.text)
+    for checkbox in soup.find_all('input'):
+        print(checkbox)
+
 def _put_files(repo_path, session, config) :
     stos_config = config['STOS']
     problem_id = stos_config['problem_id']
+
+    _delete_files(session, problem_id)
+
     params = {'p': 'put'}
     data = {'code': problem_id, 'context': '84'}
     files = {}
@@ -125,7 +139,7 @@ def _print_infofile(soup) :
         if compileroutput :
             print(compileroutput.get_text())
 
-        for element in info.children :
+        for element in info.contents :
             if element.name == 'table':
                 table = element
                 tds = table.find_all('td')
@@ -143,6 +157,7 @@ def _print_infofile(soup) :
                     i += 1
                 headers = [str(th.string) for th in table.find_all('th')]
                 print(tabulate(rows, headers=headers))
+                print()
             else :
                 try :
                     if element['class'][0] == 'trace' :
@@ -157,7 +172,8 @@ def _print_status(session, config) :
         status_html = _get_status_html(session, config)
 
     #_debug(status_html)
-    soup = BeautifulSoup(html.unescape(status_html))
+    soup = _make_soup(status_html)
+
     _print_results(soup)
     _print_infofile(soup)
 
