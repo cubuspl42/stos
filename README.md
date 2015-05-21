@@ -7,6 +7,7 @@ Prosty w obsłudze klient konsolowy do znanej i lubianej przez studentów platfo
 - Python 3.3+
 - beautifulsoup4
 - colorama
+- html2text
 - requests
 - tabulate
 
