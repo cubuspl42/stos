@@ -92,6 +92,7 @@ def _get_status_html(session, config) :
 def _print_results(soup) :
     result = soup.find(id='result')
     if result :
+        print("**** Wyniki ****\n")
         rows = []
         trs = result.find_all('tr')[1:-1]
         for tr in trs :
@@ -101,32 +102,43 @@ def _print_results(soup) :
                 style = colorama.Fore.GREEN
             style_reset = colorama.Fore.RESET
             rows.append([style + str(td.string or '') + style_reset for td in tds])
-        uwagi = ['Uwagi'] if 'Uwagi' in soup else []
-        print("**** Wyniki ****\n")
-        print(tabulate(rows, headers=['Test', 'Wynik'] + uwagi + ['Punkty', 'Czas [s]']))
-        print()
+        if rows :
+            uwagi = ['Uwagi'] if 'Uwagi' in soup else []
+            print(tabulate(rows, headers=['Test', 'Wynik'] + uwagi + ['Punkty', 'Czas [s]']))
+            print()
+        else:
+            print(result.get_text())
+            print()
 
-def _print_diffs(soup) :
+def _print_infofile(soup) :
     info = soup.find(id='infofile')
     if info :
         print("**** Dodatkowe informacje ****")
-        print()
-        for table in info.find_all('table') :
-            tds = table.find_all('td')
-            wrong_lines = tds[0].get_text().splitlines();
-            if not wrong_lines[-1] :
-                wrong_lines.pop()
-            correct_lines = tds[1].get_text().splitlines();
-            if not correct_lines[-1] :
-                correct_lines.pop()
-            rows = []
-            i = 0
-            while(i < len(wrong_lines) or i < len(correct_lines)) :
-                rows.append([wrong_lines[i] if i < len(wrong_lines) else '',
-                             correct_lines[i] if i < len(correct_lines) else ''])
-                i += 1
-            headers = [str(th.string) for th in table.find_all('th')]
-            print(tabulate(rows, headers=headers))
+
+        tables = info.find_all('table')
+        if tables :
+            print()
+            for table in tables :
+                tds = table.find_all('td')
+                wrong_lines = tds[0].get_text().splitlines();
+                if not wrong_lines[-1] :
+                    wrong_lines.pop()
+                correct_lines = tds[1].get_text().splitlines();
+                if not correct_lines[-1] :
+                    correct_lines.pop()
+                rows = []
+                i = 0
+                while(i < len(wrong_lines) or i < len(correct_lines)) :
+                    rows.append([wrong_lines[i] if i < len(wrong_lines) else '',
+                                 correct_lines[i] if i < len(correct_lines) else ''])
+                    i += 1
+                headers = [str(th.string) for th in table.find_all('th')]
+                print(tabulate(rows, headers=headers))
+
+        compileroutput = info.find(id='compileroutput')
+        if compileroutput :
+            print(compileroutput.get_text())
+
 
 def _print_status(session, config) :
     status_html = _get_status_html(session, config)
@@ -137,7 +149,7 @@ def _print_status(session, config) :
     #_debug(status_html)
     soup = BeautifulSoup(html.unescape(status_html))
     _print_results(soup)
-    _print_diffs(soup)
+    _print_infofile(soup)
 
 def push(repo_path) :
     config = _read_config(repo_path)
