@@ -69,7 +69,8 @@ def _get_username_password(repo_path, config) :
 
 def _make_soup(stos_response) :
     return BeautifulSoup(html.unescape(stos_response.replace("<br>", "<br />")
-                         .replace("</code></pre></div></td></td>", "</code></pre></div></td>")))
+                         .replace("</code></pre></div></td></td>", "</code></pre></div></td>")
+                         .replace("–", "-")))
 
 def _login_to_stos(session, username, password) :
     params = {'p': 'login'}
