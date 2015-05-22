@@ -69,8 +69,7 @@ def _get_username_password(repo_path, config) :
 
 def _make_soup(stos_response) :
     return BeautifulSoup(html.unescape(stos_response.replace("<br>", "<br />")
-                         .replace("</code></pre></div></td></td>", "</code></pre></div></td>")
-                         .replace("–", "-")))
+                         .replace("</code></pre></div></td></td>", "</code></pre></div></td>")))
 
 def _login_to_stos(session, username, password) :
     params = {'p': 'login'}
@@ -162,7 +161,7 @@ def _print_infofile(soup) :
             else :
                 try :
                     if element['class'][0] == 'trace' :
-                        print(re.sub("\n+" , "\n", html2text.html2text(str(element))))
+                        print(re.sub("\n+" , "\n", html.unescape(html2text.html2text(element.prettify()))))
                 except (KeyError, TypeError):
                     pass
 
