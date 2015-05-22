@@ -2,6 +2,8 @@
 
 Prosty w obsłudze klient konsolowy do znanej i lubianej przez studentów platformy [STOS](http://kaims.pl/~kmocet/stos/).
 
+![Wszyscy kochamy zrzuty ekranu](screenshot0.png)
+
 ## Zależności
 
 - Python 3.3+
