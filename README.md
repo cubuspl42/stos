@@ -15,7 +15,7 @@ Prosty w obsłudze klient konsolowy do znanej i lubianej przez studentów platfo
 
 ## Instalacja
 
-Sklonuj to repozytorium, następnie dodaj jego lokalizację do zmiennej PATH.
+Sklonuj to repozytorium, następnie dodaj ścieżkę podfolderu `bin` do zmiennej środowiskowej PATH.
 
 ## Użycie
 
